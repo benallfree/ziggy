@@ -2,45 +2,65 @@
 
 const webpack = require('webpack');
 const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
+const UnminifiedWebpackPlugin = require('unminified-webpack-plugin');
 
 module.exports = {
-  context: __dirname,
+  mode: 'production',
+  context: process.cwd(),
   resolve: {
-	modules: [
-	  path.resolve(__dirname, 'src'),
-	  'node_modules'
-	],
+    modules: [
+      path.resolve(process.cwd(), 'node_modules'),
+    ],
   },
-  entry: {
-	'route': './src/js/route.js',
-	'route.min': './src/js/route.js',
-  },
-  externals: [],
+  entry: './src/js/route.js',
   output: {
-	path: path.resolve(__dirname, 'dist/js'),
-	filename: "[name].js",
-	library: 'route',
-	libraryTarget: 'umd',
-	umdNamedDefine: true,
-	libraryExport: 'default'
+    path: path.resolve(process.cwd(), 'dist/js'),
+    filename: 'route.min.js',
+    library: 'route',
+    libraryTarget: 'umd',
+    umdNamedDefine: true,
+    libraryExport: 'default',
+    globalObject: 'this',
   },
   module: {
-	rules: [
-	  {
-		test: /\.js$/,
-		loader: 'babel-loader',
-		exclude: path.resolve(__dirname, 'node_modules'),
-	  },
-	]
+    rules: [
+      {
+        test: /\.js$/,
+        loader: 'babel-loader',
+        exclude: /node_modules/,
+      },
+    ]
   },
   plugins: [
-	new webpack.optimize.UglifyJsPlugin({
-	  include: /\.min\.js$/,
-	  minimize: true,
-	}),
+    new UnminifiedWebpackPlugin(),
+    new TerserPlugin({
+      cache: true,
+      parallel: true,
+      sourceMap: false,
+      terserOptions: {
+        output: {
+          comments: false,
+          beautify: false,
+        },
+        compress: {
+          drop_debugger: true,
+          drop_console: true,
+          dead_code: true,
+        }
+      }
+    }),
   ],
   devtool: false,
+  watchOptions: {
+    ignored: /node_modules/
+  },
   performance: {
-	hints: false,
-  }
+    hints: false,
+  },
+  stats: {
+    modules: false,
+    children: false,
+    entrypoints: false
+  },
 };

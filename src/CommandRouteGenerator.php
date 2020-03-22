@@ -10,7 +10,7 @@ use Tightenco\Ziggy\RoutePayload;
 
 class CommandRouteGenerator extends Command
 {
-    protected $signature = 'ziggy:generate {path=./resources/assets/js/ziggy.js} {--url=/}';
+    protected $signature = 'ziggy:generate {path=./resources/assets/js/ziggy.js} {--url=/} {--group=}';
 
     protected $description = 'Generate js file for including in build process';
 
@@ -31,12 +31,15 @@ class CommandRouteGenerator extends Command
     public function handle()
     {
         $path = $this->argument('path');
+        $group = $this->option('group');
 
-        $generatedRoutes = $this->generate();
+        $generatedRoutes = $this->generate($group);
 
         $this->makeDirectory($path);
 
         $this->files->put($path, $generatedRoutes);
+        
+        $this->info('File generated!');
     }
 
     public function generate($group = false)
@@ -44,7 +47,7 @@ class CommandRouteGenerator extends Command
         $this->prepareDomain();
 
         $json = $this->getRoutePayload($group)->toJson();
-        
+
         $defaultParameters = method_exists(app('url'), 'getDefaultParameters') ? json_encode(app('url')->getDefaultParameters()) : '[]';
 
         return <<<EOT
@@ -56,6 +59,12 @@ class CommandRouteGenerator extends Command
         basePort: {$this->basePort},
         defaultParameters: $defaultParameters
     };
+
+    if (typeof window.Ziggy !== 'undefined') {
+        for (var name in window.Ziggy.namedRoutes) {
+            Ziggy.namedRoutes[name] = window.Ziggy.namedRoutes[name];
+        }
+    }
 
     export {
         Ziggy

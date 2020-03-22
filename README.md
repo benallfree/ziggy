@@ -1,10 +1,11 @@
-![Ziggy - Use your Laravel Named Routes inside JavaScript](https://raw.githubusercontent.com/tightenco/ziggy/master/ziggy-banner.png?version=2)
+![Ziggy - Use your Laravel Named Routes inside JavaScript](https://raw.githubusercontent.com/tightenco/ziggy/master/ziggy-banner.png?version=3)
 
 # Ziggy - Use your Laravel Named Routes inside JavaScript
-![TravisCi Status for tightenco/ziggy](https://travis-ci.org/tightenco/ziggy.svg?branch=master)
 
 
 Ziggy creates a Blade directive which you can include in your views. This will export a JavaScript object of your application's named routes, keyed by their names (aliases), as well as a global `route()` helper function which you can use to access your routes in your JavaScript.
+
+Ziggy supports all versions of Laravel from `5.4` to `7.x`.
 
 ## Installation
 
@@ -68,6 +69,9 @@ return axios.get(route('posts.show', post))
         return response.data;
     });
 ```
+
+_Note: If you are using Axios and making requests which require CSRF verification, use the `url()` method on the route (documented below). This will ensure that the `X-XSRF-TOKEN` header is sent with the request._
+
 ### Default Values
 See Laravel [documentation](https://laravel.com/docs/5.5/urls#default-values)
 
@@ -75,7 +79,7 @@ Default values work out of the box for Laravel versions >= 5.5.29,
 for the previous versions you will need to set the default parameters
 by including this code somewhere in the same page as our Blade Directive (@routes)
 ```js
-Ziggy.defautParameters = {
+Ziggy.defaultParameters = {
     //example
     locale: "en"
 }
@@ -94,7 +98,7 @@ To take advantage of basic whitelisting or blacklisting of routes, you will firs
 <?php
 return [
     // 'whitelist' => ['home', 'api.*'],
-    'blacklist' => ['admin.*', 'vulnerabilities.*'],
+    'blacklist' => ['debugbar.*', 'horizon.*', 'admin.*'],
 ];
 ```
 
@@ -148,6 +152,13 @@ In the above example, you can see we have configured multiple whitelists for dif
 ```php
 @routes('author')
 ```
+
+Or if you want to expose multiple groups you can pass an array of group names. Example:
+
+```php
+@routes(['admin', 'author'])
+```
+
 **Note: Using a group will always take precedence over the above mentioned `whitelist` and `blacklist` settings.**
 
 ### Other useful methods
@@ -157,13 +168,20 @@ To get the name of the current route (based on the browser's `window.location`) 
 
 ```javascript
 route().current()
-// returns "home"
+// returns "events.index"
 ```
 
 To check that we are at a current route, pass the desired route in the only param:
 
 ```javascript
-route().current("home")
+route().current("events.index")
+// returns true
+```
+
+You can even use wildcards:
+
+```javascript
+route().current("events.*")
 // returns true
 ```
 
@@ -222,6 +240,64 @@ export {
 }
 ```
 
+### Importing the `route()` helper and generated `ziggy.js`
+
+```js
+// webpack.mix.js
+const path = require('path')
+...
+mix.webpackConfig({
+    resolve: {
+        alias: {
+            ...
+            ziggy: path.resolve('vendor/tightenco/ziggy/dist/js/route.js'),
+        },
+    },
+})
+```
+
+```js
+// app.js
+
+import route from 'ziggy'
+import { Ziggy } from './ziggy'
+
+...
+```
+
+### Using with Vue components
+
+If you want to use the `route()` helper within a Vue component, import the helper and generated `ziggy.js` as above. Then you'll need to add this to your `app.js` file:
+
+```js
+// app.js
+import route from 'ziggy'
+import { Ziggy } from './ziggy'
+
+Vue.mixin({
+    methods: {
+        route: (name, params, absolute) => route(name, params, absolute, Ziggy),
+    }
+});
+```
+Then, use the method in your Vue components like so:
+
+`<a class="nav-link" :href="route('home')">Home</a>`
+
+Thanks to [Archer70](https://github.com/tightenco/ziggy/issues/70#issuecomment-369129032) for this solution.
+
+### Using with `laravel-haml`
+
+[laravel-haml](https://github.com/BKWLD/laravel-haml) provides HAML-based Blade templating. Because laravel-haml uses a separate `BladeCompiler` instance, custom directives (like `@route`) are not automatically imported. There is a [pull request](https://github.com/BKWLD/laravel-haml/pull/25) to fix that. In the mean time, simply place this code in your `./app/Providers/AppServiceProvider.php`'s `boot()` section:
+
+```php
+$customDirectives = $this->app['blade.compiler']->getCustomDirectives();
+foreach ($customDirectives as $name => $closure) {
+  $this->app['Bkwld\LaravelHaml\HamlBladeCompiler']->directive($name, $closure);
+}
+```
+
+This pattern is not limited to laravel-haml; it can be used to initialize any custom template compilers you may be using.
 ## Environment-based loading of minified route helper file
 
 When loading the blade helper file, Ziggy will detect the current environment and minify the output if `APP_ENV` is not `local`.
@@ -241,43 +317,12 @@ return [
     'skip-route-function' => true
 ];
 ```
-
-### Using with Vue components
-
-If you want to use the `route` helper within a Vue component, you'll need to add this to your `app.js` file:
-
-```js
-Vue.mixin({
-    methods: {
-        route: route
-    }
-});
-```
-
-Then, use the method in your Vue components like so:
-
-`<a class="nav-link" :href="route('home')">Home</a>`
-
-Thanks to [Archer70](https://github.com/tightenco/ziggy/issues/70#issuecomment-369129032) for this solution.
-
-### Using with `laravel-haml`
-
-[laravel-haml](https://github.com/BKWLD/laravel-haml) provides HAML-based Blade templating. Because laravel-haml uses a separate `BladeCompiler` instance, custom directives (like `@route`) are not automatically imported. There is a [pull request](https://github.com/BKWLD/laravel-haml/pull/25) to fix that. In the mean time, simply place this code in your `./app/Providers/AppServiceProvider.php`'s `boot()` section:
-
-```php
-$customDirectives = $this->app['blade.compiler']->getCustomDirectives();
-foreach ($customDirectives as $name => $closure) {
-  $this->app['Bkwld\LaravelHaml\HamlBladeCompiler']->directive($name, $closure);
-}
-```
-
-This pattern is not limited to laravel-haml; it can be used to initialize any custom template compilers you may be using.
-
 ## Contributions & Credits
 
 To get started contributing to Ziggy, check out [the contribution guide](CONTRIBUTING.md).
 
 - [Daniel Coulbourne](https://twitter.com/DCoulbourne)
+- [Jake Bathman](https://twitter.com/jakebathman)
 - [Matt Stauffer](https://twitter.com/stauffermatt)
 
 Thanks to [Caleb Porzio](http://twitter.com/calebporzio), [Adam Wathan](http://twitter.com/adamwathan), and [Jeffrey Way](http://twitter.com/jeffrey_way) for help solidifying the idea.
