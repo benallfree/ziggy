@@ -28,7 +28,8 @@ class Router extends String {
 
         if (
             params.hasOwnProperty('id') &&
-            this.template.indexOf('{id}') == -1
+            this.template.indexOf('{id}') === -1 &&
+            this.template.indexOf('{id?}') === -1
         ) {
             params = [params.id];
         }
@@ -79,9 +80,9 @@ class Router extends String {
                     delete this.urlParams[keyName];
                 }
 
-                // The type of the value is undefined; is this param
+                // The value is null or defined; is this param
                 // optional or not
-                if (typeof tagValue === 'undefined') {
+                if (tagValue == null) {
                     if (tag.indexOf('?') === -1) {
                         throw new Error(
                             "Ziggy Error: '" +
@@ -177,7 +178,7 @@ class Router extends String {
 
         if (name) {
             const pattern = new RegExp(
-                '^' + name.replace('*', '.*').replace('.', '.') + '$',
+                '^' + name.replace('.', '\\.').replace('*', '.*') + '$',
                 'i'
             );
             return pattern.test(currentRoute);
@@ -212,6 +213,10 @@ class Router extends String {
     get params() {
         const namedRoute = this.ziggy.namedRoutes[this.current()];
 
+        let pathname = window.location.pathname
+            .replace(this.ziggy.baseUrl.split('://')[1].split('/')[1], '')
+            .replace(/^\/+/, '');
+
         return Object.assign(
             this.extractParams(
                 window.location.hostname,
@@ -219,7 +224,7 @@ class Router extends String {
                 '.'
             ),
             this.extractParams(
-                window.location.pathname.slice(1),
+                pathname,
                 namedRoute.uri,
                 '/'
             )

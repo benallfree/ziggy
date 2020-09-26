@@ -87,6 +87,16 @@ global.Ziggy = {
             methods: ['GET', 'HEAD'],
             domain: null
         },
+        optionalId: {
+            uri: 'optionalId/{type}/{id?}',
+            methods: ['GET', 'HEAD'],
+            domain: null
+        },
+        'products.show': {
+            uri: '{country?}/{language?}/products/{id}',
+            methods: ['GET', 'HEAD'],
+            domain: null
+        },
     },
     baseUrl: 'http://myapp.dev/',
     baseProtocol: 'http',
@@ -100,6 +110,29 @@ global.Ziggy = {
 describe('route()', function() {
     it('Should return URL when run without params on a route without params', function() {
         assert.equal('http://myapp.dev/posts', route('posts.index'));
+    });
+
+    it('Can handle routing for apps in a subfolder', function() {
+        let orgBaseUrl = Ziggy.baseUrl;
+        let orgBaseDomain = Ziggy.baseDomain;
+        let orgWindow = global.window;
+
+        global.Ziggy.baseUrl = 'http://domain.com/subfolder/';
+        global.Ziggy.baseDomain = 'domain.com';
+
+        global.window = {
+            location: {
+                href: 'http://domain.com/subfolder/ph/en/products/4',
+                hostname: 'domain.com',
+                pathname: '/subfolder/ph/en/products/4',
+            },
+        };
+
+        assert.deepStrictEqual(route().params, { country: 'ph', language: 'en', id: '4' });
+
+        global.Ziggy.baseUrl = orgBaseUrl;
+        global.Ziggy.baseDomain = orgBaseDomain;
+        global.window = orgWindow;
     });
 
     it('Should return URL when run without params on a route without params , with default params', function() {
@@ -217,6 +250,13 @@ describe('route()', function() {
         assert.equal(
             'http://myapp.dev/posts/1',
             route('posts.show').with({ id: 1 })
+        );
+    });
+
+    it('Should return URL when run with single object param on a route with optional params', function() {
+        assert.equal(
+            route('optionalId', { type: 'model', id: 1 }),
+            'http://myapp.dev/optionalId/model/1'
         );
     });
 
@@ -432,6 +472,13 @@ describe('route()', function() {
         );
     });
 
+    it('Should skip the optional parameter `slug` when null', function() {
+        assert.equal(
+            route('optional', { id: 123, slug: null }),
+            'http://myapp.dev/optional/123'
+        );
+    });
+
     it('Should accept the optional parameter `slug`', function() {
         assert.equal(
             route('optional', { id: 123, slug: 'news' }),
@@ -484,7 +531,7 @@ describe('route()', function() {
         global.Ziggy.basePort = orgBasePort;
     });
 
-    it('Should return correct URL without port when run with params on a route with required domain params', function() {
+    it('Should return correct URL with port when run with params on a route with required domain params', function() {
         let orgBaseUrl = Ziggy.baseUrl;
         let orgBaseDomain = Ziggy.baseDomain;
         let orgBasePort = Ziggy.basePort;
@@ -494,11 +541,11 @@ describe('route()', function() {
         global.Ziggy.basePort = 81;
 
         assert.equal(
-            'http://tighten.myapp.dev/users/1',
+            'http://tighten.myapp.dev:81/users/1',
             route('team.user.show', { team: 'tighten', id: 1 })
         );
         assert.equal(
-            'http://tighten.myapp.dev/users/1',
+            'http://tighten.myapp.dev:81/users/1',
             route('team.user.show').with({ team: 'tighten', id: 1 })
         );
 
@@ -863,16 +910,19 @@ describe('route()', function() {
     });
 
     it('Should combine dynamic params from the domain and the URI', function() {
+        global.window.location.href = 'http://tighten.myapp.dev/users/1';
         global.window.location.hostname = 'tighten.myapp.dev';
         global.window.location.pathname = '/users/1';
 
         assert.deepStrictEqual(route().params, { team: 'tighten', id: '1' });
 
+        global.window.location.href = 'http://' + global.Ziggy.baseDomain + '/posts/1';
         global.window.location.hostname = global.Ziggy.baseDomain;
         global.window.location.pathname = '/posts/1';
 
         assert.deepStrictEqual(route().params, { post: '1' });
 
+        global.window.location.href = 'http://myapp.dev/events/1/venues/2';
         global.window.location.pathname = '/events/1/venues/2';
 
         assert.deepStrictEqual(route().params, { event: '1', venue: '2' });
